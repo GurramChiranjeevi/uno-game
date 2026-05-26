@@ -4,7 +4,9 @@ const cardSchema = new mongoose.Schema(
   {
     id: { type: String, required: true },
     color: { type: String, required: true },
-    number: { type: Number, required: true },
+    type: { type: String, required: false },
+    number: { type: mongoose.Schema.Types.Mixed, required: true },
+    chosenColor: { type: String, default: null },
   },
   { _id: false },
 );
@@ -24,6 +26,7 @@ const gameSchema = new mongoose.Schema(
     drawPile: { type: [cardSchema], default: [] },
     discardPile: { type: [cardSchema], default: [] },
     currentTurn: { type: Number, default: 0 },
+    direction: { type: Number, default: 1 },
     roundNumber: { type: Number, default: 0 },
     status: { type: String, default: "active" },
     lastAction: { type: String, default: null },

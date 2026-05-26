@@ -17,7 +17,7 @@ const useGameStore = create((set, get) => ({
     }
   },
 
-  playCard: async (cardId) => {
+  playCard: async (cardId, chosenColor = null) => {
     const { game } = get();
 
     if (!game) {
@@ -30,6 +30,7 @@ const useGameStore = create((set, get) => ({
       const updatedGame = await updateGame(game.gameId, {
         type: "play",
         cardId,
+        chosenColor,
       });
       set({ game: updatedGame, loading: false });
     } catch (error) {

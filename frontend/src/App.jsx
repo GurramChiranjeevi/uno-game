@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import useGameStore from "./store/gameStore";
 import "./App.css";
@@ -8,14 +8,80 @@ const COLOR_MAP = {
   blue: "#3b82f6",
   green: "#22c55e",
   yellow: "#facc15",
+  wild: "#94a3b8",
 };
+
+const COLOR_OPTIONS = ["red", "blue", "green", "yellow"];
+
+function getCardLabel(card) {
+  if (card.type === "number") {
+    return String(card.number);
+  }
+
+  if (card.type === "reverse") {
+    return "Reverse";
+  }
+
+  if (card.type === "skip") {
+    return "Skip";
+  }
+
+  if (card.type === "drawTwo") {
+    return "+2";
+  }
+
+  if (card.type === "wild") {
+    return "Wild";
+  }
+
+  return "+4";
+}
+
+function getDiscardColor(discardTop) {
+  return discardTop.chosenColor || discardTop.color;
+}
+
+function hasMatchingColor(cards, discardColor) {
+  return cards.some((card) => card.color === discardColor);
+}
+
+function isPlayable(card, discardTop, playerCards) {
+  if (!discardTop) {
+    return true;
+  }
+
+  const discardColor = getDiscardColor(discardTop);
+
+  if (card.type === "wild") {
+    return true;
+  }
+
+  if (card.type === "wildDrawFour") {
+    return !hasMatchingColor(playerCards, discardColor);
+  }
+
+  if (card.type === discardTop.type) {
+    return true;
+  }
+
+  if (card.type === "number" && discardTop.type === "number") {
+    return card.number === discardTop.number;
+  }
+
+  return card.color === discardColor;
+}
 
 function App() {
   const { game, loading, error, initGame, playCard, drawCard } = useGameStore();
+  const [selectedWildCardId, setSelectedWildCardId] = useState(null);
 
   useEffect(() => {
     initGame();
   }, [initGame]);
+
+  useEffect(() => {
+    setSelectedWildCardId(null);
+  }, [game?.gameId]);
 
   const currentPlayer = game ? game.players[game.currentTurn] : null;
   const discardTop = game?.discardPile?.[game.discardPile.length - 1];
@@ -25,13 +91,30 @@ function App() {
       return [];
     }
 
-    return currentPlayer.cards.filter(
-      (card) =>
-        card.color === discardTop.color || card.number === discardTop.number,
+    return currentPlayer.cards.filter((card) =>
+      isPlayable(card, discardTop, currentPlayer.cards)
     );
   }, [currentPlayer, discardTop]);
 
   const hasPlayableCard = playableCards.length > 0;
+
+  function handleCardClick(card) {
+    if (card.type === "wild" || card.type === "wildDrawFour") {
+      setSelectedWildCardId(card.id);
+      return;
+    }
+
+    playCard(card.id);
+  }
+
+  function handleColorPick(color) {
+    if (!selectedWildCardId) {
+      return;
+    }
+
+    playCard(selectedWildCardId, color);
+    setSelectedWildCardId(null);
+  }
 
   if (!game) {
     return (
@@ -48,7 +131,7 @@ function App() {
     <main className="app-shell">
       <div className="topbar">
         <div>
-          <p className="eyebrow">UNO Version 1</p>
+          <p className="eyebrow">UNO Version 2</p>
           <h1>Two-player generated game</h1>
         </div>
         <div className="status-pill">Round {game.roundNumber}</div>
@@ -89,12 +172,12 @@ function App() {
                 <div
                   className="card-box"
                   style={{
-                    backgroundColor: COLOR_MAP[discardTop.color],
+                    backgroundColor: COLOR_MAP[getDiscardColor(discardTop)],
                     color: "#111827",
                   }}
                 >
-                  <strong>{discardTop.color}</strong>
-                  <span>{discardTop.number}</span>
+                  <strong>{getDiscardColor(discardTop)}</strong>
+                  <span>{getCardLabel(discardTop)}</span>
                 </div>
               )
               : <div className="card-box placeholder">Empty</div>}
@@ -111,11 +194,39 @@ function App() {
 
       <section className="hand-section">
         <div className="hand-header">
-          <h2>{currentPlayer?.name}'s turn</h2>
-          {hasPlayableCard
-            ? <p className="hint">Playable cards are highlighted.</p>
-            : <p className="hint">No playable card — draw one to continue.</p>}
+          <div>
+            <h2>{currentPlayer?.name}'s turn</h2>
+            {hasPlayableCard
+              ? <p className="hint">Playable cards are highlighted.</p>
+              : <p className="hint">No playable card — draw one to continue.
+              </p>}
+          </div>
+          <p className="hint">
+            Last action: {game.lastAction || "game_created"}
+          </p>
         </div>
+
+        {selectedWildCardId
+          ? (
+            <div className="wild-picker">
+              <p className="hint">Choose the next color for the wild card.</p>
+              <div className="color-options">
+                {COLOR_OPTIONS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className="color-option"
+                    style={{ backgroundColor: COLOR_MAP[color] }}
+                    onClick={() => handleColorPick(color)}
+                    disabled={loading}
+                  >
+                    {color}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+          : null}
 
         <div className="hand-grid">
           {currentPlayer?.cards.map((card) => {
@@ -128,17 +239,19 @@ function App() {
                 key={card.id}
                 type="button"
                 className={`card-button ${isPlayable ? "playable" : ""}`}
-                onClick={() => isPlayable && playCard(card.id)}
+                onClick={() => handleCardClick(card)}
                 disabled={loading || !isPlayable}
                 whileHover={isPlayable ? { y: -8 } : undefined}
                 whileTap={isPlayable ? { scale: 0.98 } : undefined}
               >
                 <span
                   className="card-color"
-                  style={{ backgroundColor: COLOR_MAP[card.color] }}
+                  style={{
+                    backgroundColor: COLOR_MAP[card.color] || COLOR_MAP.wild,
+                  }}
                 />
-                <strong>{card.color}</strong>
-                <span>{card.number}</span>
+                <strong>{card.color === "wild" ? "wild" : card.color}</strong>
+                <span>{getCardLabel(card)}</span>
               </motion.button>
             );
           })}
