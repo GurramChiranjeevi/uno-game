@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { createGame, updateGame } from "../api/gameApi";
+import { createGame, getGame, updateGame } from "../api/gameApi";
 
 const useGameStore = create((set, get) => ({
   game: null,
@@ -14,6 +14,57 @@ const useGameStore = create((set, get) => ({
       set({ game, loading: false });
     } catch (error) {
       set({ error: error.message, loading: false });
+    }
+  },
+
+  createRoom: async (creatorName) => {
+    set({ loading: true, error: null });
+
+    try {
+      const game = await createGame({
+        creatorName,
+      });
+      set({ game, loading: false });
+      return game;
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  joinRoom: async (gameId, playerName) => {
+    set({ loading: true, error: null });
+
+    try {
+      const updatedGame = await updateGame(gameId, {
+        type: "join",
+        playerName,
+      });
+      set({ game: updatedGame, loading: false });
+      return updatedGame;
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  loadGame: async (gameId) => {
+    set({ loading: true, error: null });
+
+    try {
+      const game = await getGame(gameId);
+      set({ game, loading: false });
+    } catch (error) {
+      set({ error: error.message, loading: false });
+    }
+  },
+
+  refreshGame: async (gameId) => {
+    try {
+      const game = await getGame(gameId);
+      set({ game });
+    } catch (error) {
+      set({ error: error.message });
     }
   },
 

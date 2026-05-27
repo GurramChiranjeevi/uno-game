@@ -19,8 +19,15 @@ async function request(path, options = {}) {
   return payload;
 }
 
-export async function createGame() {
-  return request("/api/games", { method: "POST" });
+export async function createGame(body = {}) {
+  return request("/api/games", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getGame(gameId) {
+  return request(`/api/games/${gameId}`);
 }
 
 export async function updateGame(gameId, action) {
